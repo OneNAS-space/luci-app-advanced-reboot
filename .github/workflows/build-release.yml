@@ -72,7 +72,7 @@ jobs:
           fi
 
       - name: 🏗️ Build with OpenWrt SDK
-        uses: openwrt/gh-action-sdk@v8
+        uses: openwrt/gh-action-sdk@v9
         env:
           ARCH: ${{ env.ARCH }}
           FEEDNAME: melmac

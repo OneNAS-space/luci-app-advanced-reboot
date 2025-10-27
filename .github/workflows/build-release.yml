@@ -15,8 +15,6 @@ jobs:
   build:
     name: Build for ${{ matrix.version }} / ${{ matrix.target }}
     runs-on: ubuntu-latest
-    env:
-      REPO_APK_KEY: ${{ secrets.REPO_APK_KEY }}
 
     strategy:
       fail-fast: false
@@ -25,9 +23,6 @@ jobs:
           - version: openwrt-24.10
             target: x86_64
             suffix: all
-          - version: snapshots
-            target: x86_64
-            suffix: noarch
 
     steps:
       - name: 🧾 Checkout repo
@@ -70,11 +65,7 @@ jobs:
           
       - name: 🧮 Compute ARCH
         run: |
-          if [ "${{ matrix.version }}" = "snapshots" ]; then
-            echo "ARCH=${{ matrix.target }}-SNAPSHOT" >> "$GITHUB_ENV"
-          else
-            echo "ARCH=${{ matrix.target }}-${{ matrix.version }}" >> "$GITHUB_ENV"
-          fi
+          echo "ARCH=${{ matrix.target }}-${{ matrix.version }}" >> "$GITHUB_ENV"
 
       - name: 🏗️ Build with OpenWrt SDK
         uses: openwrt/gh-action-sdk@v9
@@ -86,7 +77,6 @@ jobs:
           FEED_DIR: ${{ github.workspace }}/feed
           NO_SHFMT_CHECK: 1
           NO_REFRESH_CHECK: 1
-          PRIVATE_KEY: ${{ secrets.REPO_APK_KEY }}
 
       - name: 🔍 Debug build output
         run: |
@@ -107,7 +97,6 @@ jobs:
           name: ${{ env.PKG_NAME }}-${{ matrix.target }}-${{ matrix.version }}
           path: |
             bin/packages/*/melmac/${{ env.PKG_NAME }}*.ipk
-            bin/packages/*/melmac/${{ env.PKG_NAME }}*.apk
           if-no-files-found: ignore
 
   release:
@@ -140,7 +129,6 @@ jobs:
           name: Build v${{ steps.version.outputs.version }}
           files: |
             ./release-assets/**/*.ipk
-            ./release-assets/**/*.apk
           draft: false
           prerelease: false
         env:

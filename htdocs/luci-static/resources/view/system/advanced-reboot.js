@@ -274,7 +274,10 @@ Click "Proceed" below to reboot device to the selected partition.'
 										ui.addNotification(null, E("p", _("DEBUG: callBootPartition type: %s").format(typeof this.callBootPartition)));
 										ui.addNotification(null, E("p", _("DEBUG: about to callBootPartition")));
 										console && console.trace && console.trace("DEBUG ADVREBOOT trace before callBootPartition", { pn: pn, callBootPartition: this.callBootPartition });
-										this.callBootPartition({ number: String(pn) })
+										var targetNum = String(pn);
+										console && console.log && console.log("DEBUG ADVREBOOT: final payload will be:", { number: targetNum });
+										ui.addNotification(null, E("p", _("DEBUG: payload: %s").format(targetNum)));
+										this.callBootPartition({ number: targetNum })
 											.then(
 												L.bind(function (res) {
 													ui.hideModal();

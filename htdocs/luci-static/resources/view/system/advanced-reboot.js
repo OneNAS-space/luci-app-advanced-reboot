@@ -273,6 +273,7 @@ Click "Proceed" below to reboot device to the selected partition.'
 										this.callBootPartition({ number: String(pn) })
 											.then(
 												L.bind(function (res) {
+													ui.addNotification(null, E("p", _("DEBUG: Proceed clicked, calling boot_partition")));
 													ui.hideModal();
 													if (res && res.error) {
 														var fn = this.translateTable[res.error];

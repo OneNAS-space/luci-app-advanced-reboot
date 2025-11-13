@@ -270,11 +270,16 @@ Click "Proceed" below to reboot device to the selected partition.'
 								{
 									class: "btn cbi-button cbi-button-positive important",
 									click: L.bind(function () {
+										ui.addNotification(null, E("p", _("DEBUG: Proceed clicked, pn=%s").format(String(pn))));
+										ui.addNotification(null, E("p", _("DEBUG: callBootPartition type: %s").format(typeof this.callBootPartition)));
+										ui.addNotification(null, E("p", _("DEBUG: about to callBootPartition")));
+										console && console.trace && console.trace("DEBUG ADVREBOOT trace before callBootPartition", { pn: pn, callBootPartition: this.callBootPartition });
 										this.callBootPartition({ number: String(pn) })
 											.then(
 												L.bind(function (res) {
-													ui.addNotification(null, E("p", _("DEBUG: Proceed clicked, calling boot_partition")));
 													ui.hideModal();
+													ui.addNotification(null, E("p", _("DEBUG: callBootPartition resolved")));
+													console && console.log && console.log("DEBUG ADVREBOOT resolved res=", res);
 													if (res && res.error) {
 														var fn = this.translateTable[res.error];
 														var a = Array.isArray(res.args) ? res.args : [];
@@ -289,7 +294,11 @@ Click "Proceed" below to reboot device to the selected partition.'
 
 														return ui.addNotification(null, E("p", msg));
 													}
-													if (res && res.ok === true) return this.handleReboot();
+													if (res && res.ok === true) {
+														ui.addNotification(null, E("p", _("DEBUG: backend returned ok, calling handleReboot")));
+														console && console.log && console.log("DEBUG ADVREBOOT calling handleReboot()");
+														return this.handleReboot();
+													}
 												}, this)
 											)
 											.catch(function (e) {

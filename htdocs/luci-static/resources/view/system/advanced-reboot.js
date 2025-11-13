@@ -277,7 +277,7 @@ Click "Proceed" below to reboot device to the selected partition.'
 										var targetNum = String(pn);
 										console && console.log && console.log("DEBUG ADVREBOOT: final payload will be:", { number: targetNum });
 										ui.addNotification(null, E("p", _("DEBUG: payload: %s").format(targetNum)));
-										this.callBootPartition({ number: targetNum })
+										this.callBootPartition(targetNum)
 											.then(
 												L.bind(function (res) {
 													ui.hideModal();

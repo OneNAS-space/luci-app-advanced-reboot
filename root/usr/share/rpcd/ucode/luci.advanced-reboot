@@ -502,6 +502,7 @@ function obtain_device_info() {
  * @sideeffects  Calls fw_setenv/fw_saveenv or writes to dual-flag MTD.
  */
 function boot_partition(req) {
+	command("logger -t ADVREBOOT \"boot_partition ENTER\"");
 	/* extract target partition number from RPC args */
 	let number = null;
 	if (req && req.args && req.args.number != null) number = int(req.args.number);
@@ -558,34 +559,34 @@ function boot_partition(req) {
 					rom_board_name: board,
 				};
 			/* optional savecmd handling (legacy) */
-            if (savecmd) {
-                rc = command(savecmd + " 2>/dev/null; echo $?");
-                if (rc != "0") return { error: "ERR_SAVE_ENV", rom_board_name: board };
-            }
+			if (savecmd) {
+				rc = command(savecmd + " 2>/dev/null; echo $?");
+				if (rc != "0") return { error: "ERR_SAVE_ENV", rom_board_name: board };
+			}
 
-            /* read-back verification for this param
-               use getcmd; prefer -n if getcmd supports it to return value only */
-            let getline = null;
-            /* try short form first (some fw_printenv support -n) */
-            getline = command(getcmd + " -n " + shellquote(param) + " 2>/dev/null");
-            if (!getline) {
-                /* fallback to plain get and parse */
-                let raw = command(getcmd + " " + shellquote(param) + " 2>/dev/null");
-                /* fw_printenv typically prints "param=value" or nothing */
-                if (raw) {
-                    let m = match(raw, /^[^=]+=(.*)$/);
-                    if (m && m[1]) getline = m[1];
-                    else getline = trim(raw);
-                } else {
-                    getline = "";
-                }
-            }
-            if (trim(getline) != "" + value) {
-                return { error: "ERR_SAVE_ENV", detail: "verify failed for " + param, rom_board_name: board };
-            }
+			/* read-back verification for this param use getcmd; prefer -n if getcmd supports it to return value only */
+			let getline = null;
+			/* try short form first (some fw_printenv support -n) */
+			getline = command(getcmd + " -n " + shellquote(param) + " 2>/dev/null");
+			if (!getline) {
+				/* fallback to plain get and parse */
+				let raw = command(getcmd + " " + shellquote(param) + " 2>/dev/null");
+				/* fw_printenv typically prints "param=value" or nothing */
+				if (raw) {
+					let m = match(raw, /^[^=]+=(.*)$/);
+					if (m && m[1]) getline = m[1];
+					else getline = trim(raw);
+				} else {
+					getline = "";
+				}
+			}
+			if (trim(getline) != "" + value) {
+				return { error: "ERR_SAVE_ENV", detail: "verify failed for " + param, rom_board_name: board };
+			}
 		}
 		/* All param writes and verifies succeeded: return explicit success */
-        return { ok: true, active: "" + number };
+		command("logger -t ADVREBOOT \"boot_partition OK active=" + number + "\"");
+		return { ok: true, active: "" + number };
 	} else {
 		let df = read_dual_flag_mtd();
 		if (!df) return { error: "NO_DUAL_FLAG", rom_board_name: board };
@@ -594,10 +595,11 @@ function boot_partition(req) {
 		if (!write_dual_flag_value(df, target.param_values[0]))
 			return { error: "ERR_SET_DUAL_FLAG", args: [df], rom_board_name: board };
 		/* verify dual-flag */
-        let cur = read_dual_flag_value(df);
-        if (cur == null || cur != ("" + target.param_values[0])) {
-            return { error: "ERR_SET_DUAL_FLAG", args: [df], rom_board_name: board };
-        }
+		let cur = read_dual_flag_value(df);
+		if (cur == null || cur != ("" + target.param_values[0])) {
+			return { error: "ERR_SET_DUAL_FLAG", args: [df], rom_board_name: board };
+		}
+		command("logger -t ADVREBOOT \"boot_partition OK active=" + number + "\"");
 		return { ok: true, active: "" + number };
 	}
 }

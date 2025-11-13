@@ -557,9 +557,35 @@ function boot_partition(req) {
 					args: [param, "" + value],
 					rom_board_name: board,
 				};
-			if (savecmd) rc = command(savecmd + " 2>/dev/null; echo $?");
-			if (rc != "0") return { error: "ERR_SAVE_ENV", rom_board_name: board };
+			/* optional savecmd handling (legacy) */
+            if (savecmd) {
+                rc = command(savecmd + " 2>/dev/null; echo $?");
+                if (rc != "0") return { error: "ERR_SAVE_ENV", rom_board_name: board };
+            }
+
+            /* read-back verification for this param
+               use getcmd; prefer -n if getcmd supports it to return value only */
+            let getline = null;
+            /* try short form first (some fw_printenv support -n) */
+            getline = command(getcmd + " -n " + shellquote(param) + " 2>/dev/null");
+            if (!getline) {
+                /* fallback to plain get and parse */
+                let raw = command(getcmd + " " + shellquote(param) + " 2>/dev/null");
+                /* fw_printenv typically prints "param=value" or nothing */
+                if (raw) {
+                    let m = match(raw, /^[^=]+=(.*)$/);
+                    if (m && m[1]) getline = m[1];
+                    else getline = trim(raw);
+                } else {
+                    getline = "";
+                }
+            }
+            if (trim(getline) != "" + value) {
+                return { error: "ERR_SAVE_ENV", detail: "verify failed for " + param, rom_board_name: board };
+            }
 		}
+		/* All param writes and verifies succeeded: return explicit success */
+        return { ok: true, active: "" + number };
 	} else {
 		let df = read_dual_flag_mtd();
 		if (!df) return { error: "NO_DUAL_FLAG", rom_board_name: board };
@@ -567,8 +593,13 @@ function boot_partition(req) {
 			return { error: "NO_DUAL_FLAG_BLOCK", rom_board_name: board };
 		if (!write_dual_flag_value(df, target.param_values[0]))
 			return { error: "ERR_SET_DUAL_FLAG", args: [df], rom_board_name: board };
+		/* verify dual-flag */
+        let cur = read_dual_flag_value(df);
+        if (cur == null || cur != ("" + target.param_values[0])) {
+            return { error: "ERR_SET_DUAL_FLAG", args: [df], rom_board_name: board };
+        }
+		return { ok: true, active: "" + number };
 	}
-	return {};
 }
 
 const methods = {

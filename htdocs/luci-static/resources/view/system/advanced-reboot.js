@@ -288,7 +288,7 @@ Click "Proceed" below to reboot device to the selected partition.'
 
 														return ui.addNotification(null, E("p", msg));
 													}
-													return this.handleReboot();
+													if (res && res.ok === true) return this.handleReboot();
 												}, this)
 											)
 											.catch(function (e) {

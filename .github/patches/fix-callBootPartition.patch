@@ -1,0 +1,6 @@
+*** Begin Patch
+*** Update File: htdocs/luci-static/resources/view/system/advanced-reboot.js
+@@
+-    this.callBootPartition({ number: String(pn) })
++    this.callBootPartition(String(pn))
+*** End Patch

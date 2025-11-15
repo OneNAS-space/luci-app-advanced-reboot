@@ -1,0 +1,57 @@
+name: Apply fix-callBootPartition patch
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'htdocs/luci-static/resources/view/system/advanced-reboot.js'
+      - '.github/patches/fix-callBootPartition.patch'
+  pull_request:
+    paths:
+      - 'htdocs/luci-static/resources/view/system/advanced-reboot.js'
+      - '.github/patches/fix-callBootPartition.patch'
+
+permissions:
+  contents: write
+
+jobs:
+  apply-patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Show current file head
+        run: |
+          echo "File head of target:"
+          sed -n '1,120p' htdocs/luci-static/resources/view/system/advanced-reboot.js || true
+
+      - name: Check patch can be applied
+        run: |
+          if [ ! -f .github/patches/fix-callBootPartition.patch ]; then
+            echo "Patch file not found: .github/patches/fix-callBootPartition.patch"
+            exit 1
+          fi
+          git apply --check .github/patches/fix-callBootPartition.patch
+        continue-on-error: false
+
+      - name: Apply patch
+        run: |
+          git apply .github/patches/fix-callBootPartition.patch
+          # show the patched file excerpt
+          echo "Patched file head:"
+          sed -n '1,120p' htdocs/luci-static/resources/view/system/advanced-reboot.js || true
+
+      - name: Show git diff
+        run: git --no-pager diff --color
+
+      - name: Commit and push changes
+        if: success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add htdocs/luci-static/resources/view/system/advanced-reboot.js
+          git commit -m "ci: apply fix-callBootPartition patch" || echo "No changes to commit"
+          git push

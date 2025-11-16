@@ -16,8 +16,53 @@ on:
       - completed
 
 jobs:
+  check:
+    name: 1. Check if build is required
+    runs-on: ubuntu-latest
+    outputs:
+      should_build: ${{ steps.check_release.outputs.should_build }}
+      tag_name: ${{ steps.version.outputs.tag_name }}
+      main_version: ${{ steps.version.outputs.main_version }}
+      main_full_version: ${{ steps.version.outputs.main_full_version }}
+
+    steps:
+      - name: 🧾 Checkout repo
+        uses: actions/checkout@v5
+
+      - name: 🏷️ Extract version info from Makefile
+        id: version
+        run: |
+          PKG_VERSION=$(grep -E '^PKG_VERSION *:?=' Makefile | head -n1 | cut -d= -f2 | tr -d '[:space:]')
+          PKG_RELEASE=$(grep -E '^PKG_RELEASE *:?=' Makefile | head -n1 | cut -d= -f2 | tr -d '[:space:]')
+          COMBINED_VERSION="${PKG_VERSION}-${PKG_RELEASE}"
+          
+          echo "tag_name=v${COMBINED_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "main_version=$PKG_VERSION" >> "$GITHUB_OUTPUT"
+          echo "main_full_version=$COMBINED_VERSION" >> "$GITHUB_OUTPUT"
+                    
+      - name: 🧐 Check if release exists
+        id: check_release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.version.outputs.tag_name }}
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "Manual run detected. Forcing build."
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            echo "Release $TAG already exists. Skipping build."
+            echo "should_build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Release $TAG does not exist. Proceeding with build."
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+          fi
+
   build:
-    name: Build for ${{ matrix.version }} / ${{ matrix.target }}
+    name: 2. Build for ${{ matrix.version }} / ${{ matrix.target }}
+    needs: check
+    if: needs.check.outputs.should_build == 'true'
     runs-on: ubuntu-latest
 
     strategy:
@@ -104,22 +149,14 @@ jobs:
           if-no-files-found: ignore
 
   release:
-    name: Release ${{ github.repository }}
-    needs: build
+    name: 3. Release ${{ github.repository }}
+    needs: [check, build]
+    if: needs.check.outputs.should_build == 'true'
     runs-on: ubuntu-latest
 
     steps:
       - name: 🧾 Checkout repo
         uses: actions/checkout@v5
-
-      - name: 🔍 Extract version and release from Makefile
-        id: version
-        run: |
-          PKG_VERSION=$(grep -E '^PKG_VERSION *:?=' Makefile | head -n1 | cut -d= -f2 | tr -d '[:space:]')
-          PKG_RELEASE=$(grep -E '^PKG_RELEASE *:?=' Makefile | head -n1 | cut -d= -f2 | tr -d '[:space:]')
-          COMBINED_VERSION="${PKG_VERSION}-${PKG_RELEASE}"
-          echo "📦 Version: $COMBINED_VERSION"
-          echo "version=$COMBINED_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: ⬇️ Download all build artifacts
         uses: actions/download-artifact@v6
@@ -129,8 +166,8 @@ jobs:
       - name: 🗃️ Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.version.outputs.version }}
-          name: Build v${{ steps.version.outputs.version }}
+          tag_name: v${{ needs.check.outputs.tag_name }}
+          name: Build-v${{ needs.check.outputs.main_full_version }}
           files: |
             ./release-assets/**/*.ipk
           draft: false
@@ -162,5 +199,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add luci/
-          git commit -m "Update to - v${{ steps.version.outputs.version }}" || echo "No changes"
+          git commit -m "Update to - v${{ needs.check.outputs.main_full_version }}" || echo "No changes"
           git push

@@ -7,9 +7,13 @@ on:
     branches:
       - main
     paths:
-      - 'Makefile'
+      - '**/Makefile'
       - '!**/.github/**'
   workflow_dispatch:
+  workflow_run:
+    workflows: ["Apply fix-callBootPartition"]
+    types:
+      - completed
 
 jobs:
   build:

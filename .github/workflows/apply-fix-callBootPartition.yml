@@ -63,13 +63,11 @@ jobs:
         if: steps.replace.outputs.changed == 'true'
         run: git --no-pager diff --staged --color
 
-      - name: Push changes to main
+      - name: Commit and push changes
         if: steps.replace.outputs.changed == 'true'
-        env:
-          GIT_BRANCH: main
         run: |
-          # Push the current HEAD to the repository default branch (usually main).
-          # If you want to always push to origin main, keep the ref as 'main'.
-          git remote set-url origin "${{ github.repositoryUrl }}" || true
-          # Force push current HEAD to main branch name
-          git push origin "HEAD:main"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add htdocs/luci-static/resources/view/system/advanced-reboot.js
+          git commit -m "ci: normalize callBootPartition invocation to primitive arg" || echo "No changes to commit"
+          git push origin HEAD:main

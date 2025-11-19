@@ -270,7 +270,7 @@ Click "Proceed" below to reboot device to the selected partition.'
 								{
 									class: "btn cbi-button cbi-button-positive important",
 									click: L.bind(function () {
-										this.callBootPartition(String(pn))
+										this.callBootPartition({ number: String(pn) })
 											.then(
 												L.bind(function (res) {
 													ui.hideModal();

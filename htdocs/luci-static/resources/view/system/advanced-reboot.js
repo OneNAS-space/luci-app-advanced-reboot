@@ -1,5 +1,3 @@
-# test
-#
 "use strict";
 "require view";
 "require rpc";

@@ -1,15 +1,15 @@
 {
 	"device": {
-		"vendor": "Netgear",
-		"model": "WAC510",
+		"vendor": "Linksys",
+		"model": "EA7500v3",
 		"board": [
-			"netgear,wac510"
+			"linksys,ea7500-v3"
 		]
 	},
 	"commands": {
 		"params": [
-			"primary",
-			"secondary"
+			"boot_part",
+			"bootimage"
 		],
 		"get": "fw_printenv",
 		"set": "fw_setenv",
@@ -19,21 +19,25 @@
 		{
 			"number": 1,
 			"param_values": [
-				0,
-				3800000
+				1,
+				1
 			],
 			"firmware": {
-				"rootfs": "mtd10"
+				"kernel": "mtd3",
+				"kernel_label_offset": 32,
+				"rootfs": "mtd4"
 			}
 		},
 		{
 			"number": 2,
 			"param_values": [
-				3800000,
-				0
+				2,
+				2
 			],
 			"firmware": {
-				"rootfs": "mtd11"
+				"kernel": "mtd5",
+				"kernel_label_offset": 32,
+				"rootfs": "mtd6"
 			}
 		}
 	]

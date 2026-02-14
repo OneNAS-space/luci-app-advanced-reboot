@@ -1,39 +1,39 @@
 {
 	"device": {
-		"vendor": "Netgear",
-		"model": "WAC510",
+		"vendor": "Linksys",
+		"model": "MX6200",
 		"board": [
-			"netgear,wac510"
+			"linksys-mx6200"
 		]
 	},
 	"commands": {
 		"params": [
-			"primary",
-			"secondary"
+			"boot_part"
 		],
 		"get": "fw_printenv",
 		"set": "fw_setenv",
-		"save": null
+		"save": null,
+		"set_helper": "/usr/share/advanced-reboot/helpers/linksys-mx6200.sh"
 	},
 	"partitions": [
 		{
 			"number": 1,
 			"param_values": [
-				0,
-				3800000
+				1
 			],
 			"firmware": {
-				"rootfs": "mtd10"
+				"rootfs": "mtd18",
+				"rootfs_ubi_volume": 1
 			}
 		},
 		{
 			"number": 2,
 			"param_values": [
-				3800000,
-				0
+				2
 			],
 			"firmware": {
-				"rootfs": "mtd11"
+				"rootfs": "mtd19",
+				"rootfs_ubi_volume": 1
 			}
 		}
 	]

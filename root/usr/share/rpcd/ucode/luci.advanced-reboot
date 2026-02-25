@@ -42,6 +42,10 @@
 import * as fs from "fs";
 let DEVICES_DIR = "/usr/share/advanced-reboot/devices/";
 let DEVICES_JSON = "/usr/share/advanced-reboot/devices.json";
+/* Reset in alt_partition_mount() on each call; tracks whether the UBI device
+ * was already attached (e.g. by the kernel on IPQ5018) so alt_partition_unmount() knows
+ * not to detach it. */
+let alt_ubi_pre_attached = false;
 
 function file_exists(p) {
 	try {
@@ -194,6 +198,22 @@ function get_partition_info_current() {
 	return get_volume_info("/");
 }
 
+/* Find the UBI device number for a given MTD index via sysfs.
+ *
+ * Checks /sys/class/ubi/ubiN/mtd_num entries to find a match.
+ *
+ * @param {Number|String} mtd_idx  MTD index to look up.
+ * @returns {Number|null} UBI device number, or null if not found.
+ */
+function find_ubi_dev_by_mtd(mtd_idx) {
+	let out = command(
+		"for d in /sys/class/ubi/ubi[0-9]*; do " +
+		"[ \"$(cat \"$d/mtd_num\" 2>/dev/null)\" = \"" + mtd_idx + "\" ] && " +
+		"echo \"${d##*/ubi}\" && break; done"
+	);
+	return out && length(out) ? int(out) : null;
+}
+
 /* Determine if an alternate partition can be mounted.
  *
  * Requires: ubiattach, ubiblock, and mount commands available.
@@ -235,8 +255,18 @@ function alt_partition_mount(op_ubi, ubi_vol) {
 		op_ubi +
 		" 2>/dev/null | sed -n 's/^UBI device number\\s*\\([0-9]*\\),.*$/\\1/p'"
 	);
-	log("mounted alternative partition UBI device number: " + out);
 	let dev = out && length(out) ? int(out) : null;
+	alt_ubi_pre_attached = false;
+	if (dev == null) {
+		/* ubiattach failed — MTD may already be attached (e.g. by kernel).
+		 * Look up the existing UBI device number via sysfs. */
+		dev = find_ubi_dev_by_mtd(op_ubi);
+		if (dev != null) {
+			alt_ubi_pre_attached = true;
+			log("found pre-attached UBI device " + dev + " for mtd" + op_ubi);
+		}
+	}
+	log("alternative partition UBI device number: " + dev);
 	if (dev == null) {
 		command("ubidetach -m " + op_ubi + " >/dev/null 2>&1");
 		return false;
@@ -253,6 +283,7 @@ function alt_partition_mount(op_ubi, ubi_vol) {
 /* Unmount and detach any UBI devices associated with a given MTD index.
  *
  * Also removes possible ubiblock nodes for the device.
+ * Skips ubidetach when the UBI was pre-attached (not attached by us).
  *
  * @param {Number|String} op_ubi   UBI mtd index previously attached.
  * @param {Number|String} ubi_vol  UBI volume index (ignored during cleanup).
@@ -260,25 +291,18 @@ function alt_partition_mount(op_ubi, ubi_vol) {
  * @sideeffects  umounts /var/alt_rom, ubidetach, removes ubiblock nodes.
  */
 function alt_partition_unmount(op_ubi, ubi_vol) {
-	let mtdCount = command(
-		'ubinfo | grep "Present UBI devices" | tr "," "\\n" | grep -c "ubi"'
-	);
-	mtdCount = int(mtdCount) || 10;
 	command("umount /var/alt_rom");
-	for (let i = 0; i <= mtdCount; i++) {
-		let mtd = fs.readfile("/sys/devices/virtual/ubi/ubi" + i + "/mtd_num");
-		if (!mtd) break;
-		mtd = trim(mtd);
-		if (mtd == "" + op_ubi) {
-			/* remove any ubiblock nodes on this ubi dev */
-			for (let vid = 0; vid < 16; vid++)
-				command(
-					"ubiblock --remove /dev/ubi" + i + "_" + vid + " >/dev/null 2>&1"
-				);
+	let dev = find_ubi_dev_by_mtd(op_ubi);
+	if (dev != null) {
+		/* remove any ubiblock nodes on this ubi dev */
+		for (let vid = 0; vid < 16; vid++)
+			command(
+				"ubiblock --remove /dev/ubi" + dev + "_" + vid + " >/dev/null 2>&1"
+			);
+		if (!alt_ubi_pre_attached)
 			command("ubidetach -m " + op_ubi + " >/dev/null 2>&1");
-			command("rm -rf /var/alt_rom");
-		}
 	}
+	command("rm -rf /var/alt_rom");
 }
 
 /* Get label/OS info from an alternative partition, using UBI mount flow.

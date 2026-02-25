@@ -2,14 +2,10 @@
 	"device": {
 		"vendor": "Linksys",
 		"model": "MX6200",
-		"board": [
-			"linksys-mx6200"
-		]
+		"board": ["linksys,mx6200"]
 	},
 	"commands": {
-		"params": [
-			"boot_part"
-		],
+		"params": ["boot_part"],
 		"get": "fw_printenv",
 		"set": "fw_setenv",
 		"save": null,
@@ -18,9 +14,7 @@
 	"partitions": [
 		{
 			"number": 1,
-			"param_values": [
-				1
-			],
+			"param_values": [1],
 			"firmware": {
 				"rootfs": "mtd18",
 				"rootfs_ubi_volume": 1
@@ -28,9 +22,7 @@
 		},
 		{
 			"number": 2,
-			"param_values": [
-				2
-			],
+			"param_values": [2],
 			"firmware": {
 				"rootfs": "mtd19",
 				"rootfs_ubi_volume": 1

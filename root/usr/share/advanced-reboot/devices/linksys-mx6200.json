@@ -16,7 +16,7 @@
 			"number": 1,
 			"param_values": [1],
 			"firmware": {
-				"rootfs": "mtd18",
+				"rootfs": "mtd19",
 				"rootfs_ubi_volume": 1
 			}
 		},

@@ -100,28 +100,28 @@ function find_device_info(romBoardName) {
 
 	// Read one big JSON file instead of many small ones
 	let txt = fs.readfile(DEVICES_JSON);
-	if (!txt) return null;
+	if (txt) {
+		// devices.json : [ { device: {...} }, { device: {...} }, ... ]
+		let arr = json(txt);
+		if (arr && type(arr) == "array") {
+			// Loop over each object in the array
+			for (let obj in arr) {
+				if (!obj || !obj.device) continue;
 
-	// devices.json : [ { device: {...} }, { device: {...} }, ... ]
-	let arr = json(txt);
-	if (!arr || type(arr) != "array") return null;
+				let boards = obj.device.board;
+				if (!boards) continue;
 
-	// Loop over each object in the array
-	for (let obj in arr) {
-		if (!obj || !obj.device) continue;
+				// normalise to array
+				if (type(boards) != "array") boards = ["" + boards];
 
-		let boards = obj.device.board;
-		if (!boards) continue;
-
-		// normalise to array
-		if (type(boards) != "array") boards = ["" + boards];
-
-		for (let i = 0; i < length(boards); i++) {
-			let s = "" + boards[i];
-			if (s == rb) return obj;
+				for (let i = 0; i < length(boards); i++) {
+					let s = "" + boards[i];
+					if (s == rb) return obj;
+				}
+			}
 		}
 	}
-	// Fallback: old schema with many small files
+	// Fallback: individual device JSON files
 	let list = fs.glob(DEVICES_DIR + "*.json");
 	for (let f in list) {
 		let ftxt = fs.readfile(f);

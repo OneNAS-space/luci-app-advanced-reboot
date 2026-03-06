@@ -145,19 +145,21 @@ jobs:
             ls -laR bin/packages/ 2>/dev/null || echo "No packages directory"
           fi
 
-      - name: 🏷️ Rename APK with version and target
+      - name: 🏷️ Rename artifacts (Standard OpenWrt/APK format)
         run: |
           set -euo pipefail
-          PKG_VERSION=$(grep -E '^PKG_VERSION *:?=' Makefile | head -n1 | cut -d= -f2 | tr -d '[:space:]')
-          PKG_RELEASE=$(grep -E '^PKG_RELEASE *:?=' Makefile | head -n1 | cut -d= -f2 | tr -d '[:space:]')
+          FULL_VER="${{ needs.check.outputs.main_full_version }}"
           for ext in ipk apk; do
             for f in $(find bin/packages -type f -path "*/melmac/*.${ext}"); do
               dir=$(dirname "$f")
-              if [ -n "${{ matrix.suffix }}" ]; then
-                mv -v "$f" "$dir/${PKG_NAME}-${PKG_VERSION}-${PKG_RELEASE}_${{ matrix.version }}_${{ matrix.suffix }}.${ext}"
+              if [ "$ext" = "ipk" ]; then
+                ARCH_PART="${{ matrix.suffix }}"
+                [ -z "$ARCH_PART" ] && ARCH_PART="${{ matrix.target }}"
+                NEW_NAME="${PKG_NAME}_${FULL_VER}_${ARCH_PART}.ipk"
               else
-                mv -v "$f" "$dir/${PKG_NAME}-${PKG_VERSION}-${PKG_RELEASE}_${{ matrix.version }}_${{ matrix.target }}.${ext}"
+                NEW_NAME="${PKG_NAME}-${FULL_VER}.apk"
               fi
+              mv -v "$f" "$dir/$NEW_NAME"
             done
           done
           
@@ -208,12 +210,16 @@ jobs:
       - name: Update luci artifacts
         run: |
           mkdir -p custom-packages/luci
-          
-          find ./release-assets -type f -name "*.ipk" | while read -r f; do
+          find ./release-assets -type f \( -name "*.ipk" -o -name "*.apk" \) | while read -r f; do
             base=$(basename "$f")
-            pkgname=$(echo "$base" | sed -E 's/^([^_]+)_.*$/\1/')
+            if [[ "$base" == *.ipk ]]; then
+              pkgname=$(echo "$base" | cut -d'_' -f1)
+            else
+              pkgname=$(echo "$base" | sed -E 's/^(.*)-[0-9].*/\1/')
+            fi
             echo "Cleaning old versions of $pkgname"
             rm -f custom-packages/luci/${pkgname}_*.ipk
+            rm -f custom-packages/luci/${pkgname}-*.apk
             cp "$f" custom-packages/luci/
           done
           ls -la custom-packages/luci/

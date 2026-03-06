@@ -34,7 +34,7 @@ jobs:
         run: |
           PKG_VERSION=$(grep -E '^PKG_VERSION *:?=' Makefile | head -n1 | cut -d= -f2 | tr -d '[:space:]')
           PKG_RELEASE=$(grep -E '^PKG_RELEASE *:?=' Makefile | head -n1 | cut -d= -f2 | tr -d '[:space:]')
-          COMBINED_VERSION="${PKG_VERSION}-${PKG_RELEASE}"
+          COMBINED_VERSION="${PKG_VERSION}-r${PKG_RELEASE}"
           
           echo "tag_name=v${COMBINED_VERSION}" >> "$GITHUB_OUTPUT"
           echo "main_version=$PKG_VERSION" >> "$GITHUB_OUTPUT"

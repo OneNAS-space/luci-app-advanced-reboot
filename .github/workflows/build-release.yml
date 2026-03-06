@@ -145,24 +145,24 @@ jobs:
             ls -laR bin/packages/ 2>/dev/null || echo "No packages directory"
           fi
 
-      - name: 🏷️ Rename artifacts (Standard OpenWrt/APK format)
-        run: |
-          set -euo pipefail
-          FULL_VER="${{ needs.check.outputs.main_full_version }}"
-          for ext in ipk apk; do
-            for f in $(find bin/packages -type f -path "*/melmac/*.${ext}"); do
-              dir=$(dirname "$f")
-              if [ "$ext" = "ipk" ]; then
-                ARCH_PART="${{ matrix.suffix }}"
-                [ -z "$ARCH_PART" ] && ARCH_PART="${{ matrix.target }}"
-                NEW_NAME="${PKG_NAME}_${FULL_VER}_${ARCH_PART}.ipk"
-              else
-                NEW_NAME="${PKG_NAME}-${FULL_VER}.apk"
-              fi
-              mv -v "$f" "$dir/$NEW_NAME"
-            done
-          done
-          
+#      - name: 🏷️ Rename artifacts (Standard OpenWrt/APK format)
+#        run: |
+#          set -euo pipefail
+#          FULL_VER="${{ needs.check.outputs.main_full_version }}"
+#          for ext in ipk apk; do
+#            for f in $(find bin/packages -type f -path "*/melmac/*.${ext}"); do
+#              dir=$(dirname "$f")
+#              if [ "$ext" = "ipk" ]; then
+#                ARCH_PART="${{ matrix.suffix }}"
+#                [ -z "$ARCH_PART" ] && ARCH_PART="${{ matrix.target }}"
+#                NEW_NAME="${PKG_NAME}_${FULL_VER}_${ARCH_PART}.ipk"
+#              else
+#                NEW_NAME="${PKG_NAME}-${FULL_VER}.apk"
+#              fi
+#              mv -v "$f" "$dir/$NEW_NAME"
+#            done
+#          done
+
       - name: 📦 Upload artifact for ${{ matrix.target }}
         uses: actions/upload-artifact@v7
         with:

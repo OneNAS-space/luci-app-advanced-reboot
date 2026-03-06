@@ -72,6 +72,9 @@ jobs:
           - version: openwrt-24.10
             target: x86_64
             suffix: all
+          - version: openwrt-25.12
+            target: x86_64
+            suffix: noarch
 
     steps:
       - name: 🧾 Checkout repo
@@ -101,16 +104,18 @@ jobs:
             --exclude='.github' \
             ./ feed/luci/applications/${PKG_NAME}/
             
-      - name: 🧹 Consolidate devices JSON & prune folders
-        run: |
-          set -euo pipefail
-          DEV_DIR="feed/luci/applications/${PKG_NAME}/root/usr/share/advanced-reboot"
-          if [ -d "${DEV_DIR}/devices" ]; then
-            ( cd "${DEV_DIR}/devices" && jq -s '.' *.json > "../devices.json" )
-            if [ -s "${DEV_DIR}/devices.json" ]; then
-              rm -rf "${DEV_DIR}/devices" "${DEV_DIR}/devices.disabled"
-            fi
-          fi
+      # Devices JSON consolidation & pruning is handled by the Makefile
+      # during the OpenWrt buildroot compilation step.
+      # - name: 🧹 Consolidate devices JSON & prune folders
+      #   run: |
+      #     set -euo pipefail
+      #     DEV_DIR="feed/luci/applications/${PKG_NAME}/root/usr/share/advanced-reboot"
+      #     if [ -d "${DEV_DIR}/devices" ]; then
+      #       ( cd "${DEV_DIR}/devices" && jq -s '.' *.json > "../devices.json" )
+      #       if [ -s "${DEV_DIR}/devices.json" ]; then
+      #         rm -rf "${DEV_DIR}/devices" "${DEV_DIR}/devices.disabled"
+      #       fi
+      #     fi
           
       - name: 🧮 Compute ARCH
         run: |
@@ -140,16 +145,33 @@ jobs:
             ls -laR bin/packages/ 2>/dev/null || echo "No packages directory"
           fi
 
+      - name: 🏷️ Rename APK with version and target
+        run: |
+          set -euo pipefail
+          PKG_VERSION=$(grep -E '^PKG_VERSION *:?=' Makefile | head -n1 | cut -d= -f2 | tr -d '[:space:]')
+          PKG_RELEASE=$(grep -E '^PKG_RELEASE *:?=' Makefile | head -n1 | cut -d= -f2 | tr -d '[:space:]')
+          for ext in ipk apk; do
+            for f in $(find bin/packages -type f -path "*/melmac/*.${ext}"); do
+              dir=$(dirname "$f")
+              if [ -n "${{ matrix.suffix }}" ]; then
+                mv -v "$f" "$dir/${PKG_NAME}-${PKG_VERSION}-${PKG_RELEASE}_${{ matrix.version }}_${{ matrix.suffix }}.${ext}"
+              else
+                mv -v "$f" "$dir/${PKG_NAME}-${PKG_VERSION}-${PKG_RELEASE}_${{ matrix.version }}_${{ matrix.target }}.${ext}"
+              fi
+            done
+          done
+          
       - name: 📦 Upload artifact for ${{ matrix.target }}
         uses: actions/upload-artifact@v7
         with:
           name: ${{ env.PKG_NAME }}-${{ matrix.target }}-${{ matrix.version }}
           path: |
             bin/packages/*/melmac/${{ env.PKG_NAME }}*.ipk
+            bin/packages/*/melmac/${{ env.PKG_NAME }}*.apk
           if-no-files-found: ignore
 
   release:
-    name: 3. Release ${{ github.repository }}
+    name: Release ${{ github.repository }}
     needs: [check, build]
     if: needs.check.outputs.should_build == 'true'
     runs-on: ubuntu-latest
@@ -170,6 +192,7 @@ jobs:
           name: Build-v${{ needs.check.outputs.main_full_version }}
           files: |
             ./release-assets/**/*.ipk
+            ./release-assets/**/*.apk
           draft: false
           prerelease: false
         env:

@@ -368,7 +368,7 @@ return view.extend({
 			partitions = device_info.partitions || [];
 		}
 
-		if (Object.keys(changes || {}).length > 0) {
+		for (var config in changes || {}) {
 			body.appendChild(
 				E(
 					"p",
@@ -376,6 +376,7 @@ return view.extend({
 					_("Warning: There are unsaved changes that will get lost on reboot!")
 				)
 			);
+			break;
 		}
 
 		/* Error handling */

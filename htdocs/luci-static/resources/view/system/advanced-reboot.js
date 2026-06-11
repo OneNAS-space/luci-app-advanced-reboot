@@ -10,7 +10,7 @@ var pkg = {
 		return "luci-app-advanced-reboot";
 	},
 	get URL() {
-		return "https://docs.openwrt.melmac.ca/" + pkg.Name + "/";
+		return "https://docs.mossdef.org/" + pkg.Name + "/";
 	},
 };
 

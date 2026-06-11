@@ -7,7 +7,7 @@
 #   02: obtain_device_info (fw_printenv, dual-flag)
 #   03: boot_partition (switch, failure)
 #
-# Usage: cd source.openwrt.melmac.ca/luci-app-advanced-reboot && bash tests/run_tests.sh
+# Usage: cd source.mossdef.org/luci-app-advanced-reboot && bash tests/run_tests.sh
 
 set -o pipefail
 

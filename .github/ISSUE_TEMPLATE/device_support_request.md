@@ -7,7 +7,7 @@ assignees: stangri
 
 ---
 
-See the [Requesting Support](https://docs.openwrt.melmac.ca/luci-app-advanced-reboot/#requesting-support) and [Adding Device Support Yourself](https://docs.openwrt.melmac.ca/luci-app-advanced-reboot/#adding-device-support-yourself) sections of the docs for full background.
+See the [Requesting Support](https://docs.mossdef.org/luci-app-advanced-reboot/#requesting-support) and [Adding Device Support Yourself](https://docs.mossdef.org/luci-app-advanced-reboot/#adding-device-support-yourself) sections of the docs for full background.
 
 **Device**
 

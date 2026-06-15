@@ -7,7 +7,7 @@ PKG_NAME:=luci-app-advanced-reboot
 PKG_LICENSE:=AGPL-3.0-or-later
 PKG_MAINTAINER:=Stan Grishin <stangri@melmac.ca>
 PKG_VERSION:=1.1.2
-PKG_RELEASE:=4
+PKG_RELEASE:=5
 
 LUCI_TITLE:=Advanced Linksys Reboot Web UI
 LUCI_URL:=https://github.com/mossdef-org/luci-app-advanced-reboot/

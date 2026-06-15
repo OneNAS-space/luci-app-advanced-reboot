@@ -19,7 +19,8 @@
  * 		"get": "fw_printenv",
  * 		"set": "fw_setenv",
  * 		"save": null,
- * 		"set_helper": "/usr/share/advanced-reboot/helpers/<device>.sh"
+ * 		"set_helper": "/usr/share/advanced-reboot/helpers/<device>.sh",
+ * 		"dual_flag": { "mtd": "<partition-name>", "offset": <int> }
  * 	},
  * 	"partitions": [
  * 		{ "number": 1, "param_values": [v1, w1], "firmware": { "kernel": "mtdX", "rootfs": "mtdY", "kernel_label_offset": <int>, "rootfs_ubi_volume": <int> } },
@@ -31,6 +32,13 @@
  * - `param_values[i]` aligns with `commands.params[i]`.
  * - `set_helper` is optional; when present, the script is called with the partition
  *   number as its sole argument after the standard params have been set.
+ * - When `commands.params` is empty the dual-flag method is used: a single byte in
+ *   an MTD partition selects the boot slot. `commands.dual_flag` is optional and
+ *   customizes this: `mtd` is the partition name to locate via find_mtd_part
+ *   (default: "0:dual_flag"/"0:DUAL_FLAG"), `offset` is the byte offset of the flag
+ *   (default: 0). `param_values[0]` for each partition is the matching flag byte as
+ *   two lowercase hex digits (e.g. "01"). Example: ZyXEL WSM20 stores the boot
+ *   number at offset 4 of the "persist" partition (1 => first OS, 2 => second OS).
  * - `firmware.kernel` is optional; the device to read raw label from at kernel_label_offset.
  * - `firmware.rootfs` is optional; the device to UBI-mount for alt partition info.
  * - `firmware.kernel_label_offset` is optional; byte offset for label probe (requires kernel).
@@ -361,8 +369,16 @@ function get_partition_info_fallback(mtd, offset, vendor) {
 	return { label: label, os: os };
 }
 
-function read_dual_flag_mtd() {
-	for (let name in ["0:dual_flag", "0:DUAL_FLAG"]) {
+/* Locate the MTD block device holding the dual-boot flag.
+ *
+ * @param {String|null} mtd_name  Partition name to look up via find_mtd_part.
+ *                                When null, falls back to the conventional
+ *                                "0:dual_flag"/"0:DUAL_FLAG" names.
+ * @returns {String|null} Device path (e.g., /dev/mtdblockN) or null if not found.
+ */
+function read_dual_flag_mtd(mtd_name) {
+	let names = mtd_name ? ["" + mtd_name] : ["0:dual_flag", "0:DUAL_FLAG"];
+	for (let name in names) {
 		let dev = command(". /lib/functions.sh; find_mtd_part " + shellquote(name));
 		if (dev) return dev;
 	}
@@ -371,15 +387,18 @@ function read_dual_flag_mtd() {
 
 /* Read the single-byte dual-boot flag value from a block device.
  *
- * @param {String} dev  Path to the block (e.g., /dev/mtdX) returned by find_mtd_part.
+ * @param {String} dev     Path to the block (e.g., /dev/mtdX) returned by find_mtd_part.
+ * @param {Number} offset  Byte offset of the flag (default 0).
  * @returns {String|null} Lowercase hex byte (e.g., "00", "01") or null on error.
  */
-function read_dual_flag_value(dev) {
+function read_dual_flag_value(dev, offset) {
 	if (!dev || dev == "" || !file_exists(dev)) return null;
+	let off = offset != null ? int(offset) : 0;
 	let r = command(
 		"dd if=" +
 		shellquote(dev) +
-		" bs=1 count=1 2>/dev/null | hexdump -n 1 -e '" +
+		" bs=1 count=1 skip=" + off +
+		" 2>/dev/null | hexdump -n 1 -e '" +
 		'1/1 "%02x"' +
 		"'"
 	);
@@ -388,20 +407,36 @@ function read_dual_flag_value(dev) {
 
 /* Write a single-byte dual-boot flag value to a block device.
  *
- * @param {String} dev  Device path (e.g., /dev/mtdX).
- * @param {String} cur  Hex byte without prefix (e.g., "01"); will be written as \\x01.
+ * @param {String} dev     Device path (e.g., /dev/mtdX).
+ * @param {String} cur     Hex byte without prefix (e.g., "01"); written as \\x01.
+ * @param {Number} offset  Byte offset of the flag (default 0).
  * @returns {Boolean} true if write succeeded, false otherwise.
  * @sideeffects  Overwrites one byte on the target device.
  */
-function write_dual_flag_value(dev, cur) {
+function write_dual_flag_value(dev, cur, offset) {
+	let off = offset != null ? int(offset) : 0;
 	cur = "\\x" + cur;
-	let rc = command(
-		"printf %b " +
-		shellquote(cur) +
-		" > " +
-		shellquote(dev) +
-		" 2>/dev/null; echo $?"
-	);
+	let rc;
+	if (off == 0) {
+		rc = command(
+			"printf %b " +
+			shellquote(cur) +
+			" > " +
+			shellquote(dev) +
+			" 2>/dev/null; echo $?"
+		);
+	} else {
+		/* Patch a single byte in place without truncating the rest of the
+		 * partition (matches upstream zyxel_mstc_upgrade_prepare). */
+		rc = command(
+			"printf %b " +
+			shellquote(cur) +
+			" | dd of=" +
+			shellquote(dev) +
+			" bs=1 seek=" + off +
+			" count=1 conv=notrunc 2>/dev/null; echo $?"
+		);
+	}
 	return rc == "0";
 }
 
@@ -441,12 +476,13 @@ function obtain_device_info() {
 			push(curvals, v);
 		}
 	} else {
-		let df = read_dual_flag_mtd();
+		let dual = cmds.dual_flag ?? {};
+		let df = read_dual_flag_mtd(dual.mtd);
 		let v = null;
 		if (!df) return { error: "NO_DUAL_FLAG", rom_board_name: board };
 		if (!file_exists(df))
 			return { error: "NO_DUAL_FLAG_BLOCK", rom_board_name: board };
-		v = read_dual_flag_value(df);
+		v = read_dual_flag_value(df, dual.offset);
 		push(curvals, v);
 	}
 
@@ -620,14 +656,15 @@ function boot_partition(req) {
 				};
 		}
 	} else {
-		let df = read_dual_flag_mtd();
+		let dual = cmds.dual_flag ?? {};
+		let df = read_dual_flag_mtd(dual.mtd);
 		if (!df) return { error: "NO_DUAL_FLAG", rom_board_name: board };
 		if (!file_exists(df))
 			return { error: "NO_DUAL_FLAG_BLOCK", rom_board_name: board };
 
 		log("boot_partition setting dual flag: " + df + " to " + target.param_values[0]);
 
-		if (!write_dual_flag_value(df, target.param_values[0]))
+		if (!write_dual_flag_value(df, target.param_values[0], dual.offset))
 			return { error: "ERR_SET_DUAL_FLAG", args: [df], rom_board_name: board };
 	}
 	return {};

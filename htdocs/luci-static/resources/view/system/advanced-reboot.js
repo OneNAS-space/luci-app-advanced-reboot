@@ -429,7 +429,7 @@ return view.extend({
 			}
 		}
 
-		body.appendChild(E("h3", (device_name || "") + _(" Partitions")));
+		body.appendChild(E("h3", _("%s Partitions", (device_name || ""))));
 
 		if (
 			device_info &&
